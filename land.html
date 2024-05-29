@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이미지 및 비디오 세트 보기</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            overflow-y: auto; /* Ensure vertical scroll */
+        }
+        .paging {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100px;
+            height: 100%;
+            background: white;
+            padding: 20px 10px;
+            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .paging button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            margin-left: 120px; /* Ensure content is not hidden behind the fixed paging */
+        }
+        .set {
+            margin-bottom: 40px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .set.hidden {
+            display: none; /* Initially hide the set */
+        }
+        .set-title {
+            font-size: 24px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .item {
+            margin: 5px;
+            flex: 1 0 21%; /* 4 items per row */
+            box-sizing: border-box;
+        }
+        .item img, .item video {
+            width: 100%;
+            height: auto;
+        }
+        .object-item img {
+            width: 20px;
+            height: auto;
+        }
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+            font-size: 20px;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="paging" id="paging"></div>
+    <div class="container">
+        <div class="content-wrapper">
+            <div id="content"></div>
+            <div class="loading-spinner" id="loading-spinner">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        const totalSets = 521;
+        const setsPerPage = 5;
+        const preloadedSets = 10; // 미리 로딩할 세트 수
+        const totalPages = Math.ceil(totalSets / setsPerPage);
+        let currentPage = 1;
+        let loading = false; // 로딩 중인지 확인하는 플래그
+        let loadedPages = new Set(); // 로드된 페이지를 추적하는 집합
+        const imageCache = new Map(); // 이미지 캐시를 위한 맵
+
+        function preloadImages(setNum) {
+            const imgUrls = [
+                `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-img/character_${String(setNum).padStart(3, '0')}.png`,
+                `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-lose/battle_lose_${String(setNum).padStart(3, '0')}.png`,
+                `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/land-bg/land_${String(setNum).padStart(3, '0')}.png`,
+                `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/slot-theme/theme${String(setNum).padStart(3, '0')}_slot.png`,
+                `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/slot-theme/theme${String(setNum).padStart(3, '0')}_slot_ground.png`
+            ];
+            for (let i = 1; i <= 15; i++) {
+                imgUrls.push(`https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/object/land_${String(setNum).padStart(3, '0')}_object_${String(i).padStart(2, '0')}.png`);
+            }
+            imgUrls.forEach(url => {
+                if (!imageCache.has(url)) { // 이미지가 캐시에 없는 경우에만 로드
+                    const img = new Image();
+                    img.src = url;
+                    imageCache.set(url, img); // 캐시에 저장
+                }
+            });
+        }
+
+        function createSetHTML(setNum) {
+            return `
+                <div class="set hidden" id="set-${setNum}">
+                    <div class="set-title">Set ${setNum}</div>
+                    <div class="item"><img src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-img/character_${String(setNum).padStart(3, '0')}.png" alt="Character ${setNum}"></div>
+                    <div class="item"><img src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-lose/battle_lose_${String(setNum).padStart(3, '0')}.png" alt="Battle ${setNum}"></div>
+                    <div class="item"><video controls><source src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-mp4/character_home_mp4_${String(setNum).padStart(3, '0')}.mp4" type="video/mp4">Your browser does not support the video tag.</video></div>
+                    <div class="item"><img src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/land-bg/land_${String(setNum).padStart(3, '0')}.png" alt="Land ${setNum}"></div>
+                    <div class="item"><img src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/slot-theme/theme${String(setNum).padStart(3, '0')}_slot.png" alt="Theme ${setNum}"></div>
+                    <div class="item"><img src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/slot-theme/theme${String(setNum).padStart(3, '0')}_slot_ground.png" alt="Theme Ground ${setNum}"></div>
+                    ${createObjectsHTML(setNum)}
+                </div>
+            `;
+        }
+
+        function createObjectsHTML(setNum) {
+            let objectsHTML = '';
+            for (let i = 1; i <= 15; i++) {
+                objectsHTML += `<div class="object-item"><img src="https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/object/land_${String(setNum).padStart(3, '0')}_object_${String(i).padStart(2, '0')}.png" alt="Object ${setNum}-${i}"></div>`;
+            }
+            return objectsHTML;
+        }
+
+        function loadSets(startSet, endSet, reset = false) {
+            if (loading) return; // 이미 로딩 중이면 중단
+            loading = true;
+
+            const contentDiv = document.getElementById('content');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            loadingSpinner.style.display = 'block'; // 로딩 스피너 표시
+
+            if (reset) {
+                contentDiv.innerHTML = ''; // 현재 콘텐츠를 지우고
+                loadedPages.clear(); // 로드된 페이지 기록 초기화
+            }
+
+            const loadPromises = []; // 로딩 중인 이미지의 프로미스를 담는 배열
+
+            // 새로운 세트 추가
+            for (let i = startSet; i <= endSet; i++) {
+                const setHTML = createSetHTML(i);
+                contentDiv.innerHTML += setHTML;
+
+                // 이미지 로딩 프로미스 생성
+                const imgUrls = [
+                    `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-img/character_${String(i).padStart(3, '0')}.png`,
+                    `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-lose/battle_lose_${String(i).padStart(3, '0')}.png`,
+                    `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/land-bg/land_${String(i).padStart(3, '0')}.png`,
+                    `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/slot-theme/theme${String(i).padStart(3, '0')}_slot.png`,
+                    `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/slot-theme/theme${String(i).padStart(3, '0')}_slot_ground.png`
+                ];
+                for (let j = 1; j <= 15; j++) {
+                    imgUrls.push(`https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/object/land_${String(i).padStart(3, '0')}_object_${String(j).padStart(2, '0')}.png`);
+                }
+                imgUrls.forEach(url => {
+                    const img = new Image();
+                    img.src = url;
+                    const imgLoadPromise = new Promise(resolve => {
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    });
+                    loadPromises.push(imgLoadPromise);
+                });
+
+                // 다음 세트를 미리 로드
+                if (i < totalSets) {
+                    preloadImages(i + setsPerPage);
+                }
+            }
+
+            // 모든 이미지 로딩이 완료될 때까지 기다림
+            Promise.all(loadPromises).then(() => {
+                // 모든 세트가 로드된 후에 표시
+                document.querySelectorAll('.set.hidden').forEach(set => {
+                    set.classList.remove('hidden');
+                });
+                loadingSpinner.style.display = 'none'; // 로딩 스피너 숨김
+                createPagingButtons();
+                loading = false;
+            });
+        }
+
+        function createPagingButtons() {
+            const pagingDiv = document.getElementById('paging');
+            pagingDiv.innerHTML = '';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const setNumber = (i - 1) * setsPerPage + 1;
+                pagingDiv.innerHTML += `<button onclick="goToPage(${i})">Set ${setNumber}</button>`;
+            }
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            const startSet = (page - 1) * setsPerPage + 1;
+            const endSet = Math.min(startSet + setsPerPage - 1, totalSets);
+            loadSets(startSet, endSet, true); // 페이지 이동 시 콘텐츠 초기화
+            window.scrollTo(0, 0); // 페이지 이동 시 상단으로 스크롤
+        }
+
+        function loadMoreSets() {
+            if (!loading && currentPage < totalPages) {
+                const nextPage = currentPage + 1;
+                const startSet = (nextPage - 1) * setsPerPage + 1;
+                const endSet = Math.min(startSet + setsPerPage - 1, totalSets);
+
+                if (!loadedPages.has(nextPage)) {
+                    loadedPages.add(nextPage);
+                    loadSets(startSet, endSet);
+                    currentPage = nextPage;
+                }
+            }
+        }
+
+        // 스크롤 이벤트 리스너
+        window.addEventListener('scroll', () => {
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 100) {
+                loadMoreSets();
+            }
+        });
+
+        // 초기 페이지 로드
+        loadSets(1, setsPerPage);
+    </script>
+</body>
+</html>
