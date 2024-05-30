@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미디어 나열 페이지</title>
+    <style>
+        .media-container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .media-set {
+            margin: 20px;
+            text-align: center;
+        }
+        .media-set img,
+        .media-set video {
+            max-width: 200px;
+            display: block;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>미디어 나열 페이지</h1>
+    <div class="media-container">
+        <!-- 미디어 항목들이 여기에 추가됩니다 -->
+    </div>
+    <script>
+        const mediaContainer = document.querySelector('.media-container');
+
+        for (let i = 1; i <= 540; i++) {
+            const imageNumber = String(i).padStart(3, '0');
+            const imageUrl = `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-lose/battle_lose_${imageNumber}.png`;
+            const videoUrl = `https://storage.googleapis.com/dragon-heart-dev/goc-asset/non-static/character-mp4/character_home_mp4_${imageNumber}.mp4`;
+
+            const mediaSet = document.createElement('div');
+            mediaSet.className = 'media-set';
+
+            const setTitle = document.createElement('h2');
+            setTitle.textContent = `Set ${imageNumber}`;
+
+            const imgElement = document.createElement('img');
+            imgElement.src = imageUrl;
+            imgElement.alt = `Image ${imageNumber}`;
+
+            const videoElement = document.createElement('video');
+            videoElement.dataset.src = videoUrl;
+            videoElement.controls = true;
+
+            mediaSet.appendChild(setTitle);
+            mediaSet.appendChild(imgElement);
+            mediaSet.appendChild(videoElement);
+            mediaContainer.appendChild(mediaSet);
+        }
+
+        // Intersection Observer 설정
+        const lazyLoadVideos = entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const video = entry.target;
+                    video.src = video.dataset.src;
+                    observer.unobserve(video);
+                }
+            });
+        };
+
+        const observer = new IntersectionObserver(lazyLoadVideos, {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.1
+        });
+
+        const videos = document.querySelectorAll('video');
+        videos.forEach(video => {
+            observer.observe(video);
+        });
+    </script>
+</body>
+</html>
